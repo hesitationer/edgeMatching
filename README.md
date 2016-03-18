@@ -3,7 +3,7 @@
 ### Goals:
 - Detect a template image in a query image using only edge information:
   - [x] detection at single scale.
-  - [x] detection at multiple scales.
+  - [ ] detection at multiple scales.
   - [ ] detection at multiple scales and with rotation.
   - [ ] multiple detections at multiple scales and with rotation, highly cluttered background.
 - Detect in a query image the most probable template image and retrieve the corresponding pose (from the same object, multiple template images at different orientations are saved with the corresponding object pose)
@@ -38,10 +38,10 @@
 
 
 ## TODO:
-* Allow to detect a template image with a different orientation in the query image.
-* Speed-up the computation ! (Need to implement a different approach.)
-* Test the robustness of the detection.
-* Test the detection from multiple template images.
+* [ ] Allow to detect a template image with a different orientation in the query image.
+* [ ] Speed-up the computation ! (Need to implement a different approach.)
+* [ ] Test the robustness of the detection.
+* [ ] Test the detection from multiple template images.
 
 
    [Chamfer Matching (contour based shape matching)]: <https://alliance.seas.upenn.edu/~cis581/wiki/Lectures/Fall2013/CIS581-21-13-chamfer-matching.pdf>
