@@ -13,11 +13,15 @@
   - [ ] multiple detections at multiple scales and with rotation, highly cluttered background.
 
 ## First result:
-![Template edges image:](/results/Edge_template.png "Template edges image")
+* Template edges image:
 
-![Query edges image:](/results/Edge_query.png "Query edges image")
+![Template edges image](/results/Edge_template.png "Template edges image")
 
-![Detection at single scale:](/results/Simple_test_result_single_scale.png "Detection at single scale")
+* Query edges image:
+![Query edges image](/results/Edge_query.png "Query edges image")
+
+* Detection at single scale:
+![Detection at single scale](/results/Simple_test_result_single_scale.png "Detection at single scale")
 
 ## References (non exhaustive):
 * [Chamfer Matching (contour based shape matching)] - Course from University of Pennsylvania by Nicu Știurcă.
@@ -53,5 +57,6 @@
    [Edge Based Tracking library]: <https://github.com/CognitiveRobotics/object_tracking_2D>
    [Robust 3D visual tracking using particle filtering on the special Euclidean group: A combined approach of keypoint and edge features]: <https://people.csail.mit.edu/cchoi/pub/Choi12ijrr.pdf>
 
-
-
+## Ideas:
+* Add a pyramidal detection (coarse-to-fine approach).
+* Try to implement and use an integral distance transform image.
