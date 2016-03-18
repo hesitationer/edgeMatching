@@ -25,7 +25,7 @@
 
 ## References (non exhaustive):
 * [Chamfer Matching (contour based shape matching)] - Course from University of Pennsylvania by Nicu Știurcă.
-* [Fast Directional Chamfer Matching]
+* [Fast Directional Chamfer Matching (paper)]
 * [Fast Detection of Multiple Textureless 3-D Objects]
 * [Contour Based Learning for Object Detection]
 
@@ -45,7 +45,7 @@
 
 
    [Chamfer Matching (contour based shape matching)]: <https://alliance.seas.upenn.edu/~cis581/wiki/Lectures/Fall2013/CIS581-21-13-chamfer-matching.pdf>
-   [Fast Directional Chamfer Matching]: <https://www.umiacs.umd.edu/users/vashok/MyPapers/HighlySelectiveConf2010/liu_cvpr2010.pdf>
+   [Fast Directional Chamfer Matching (paper)]: <https://www.umiacs.umd.edu/users/vashok/MyPapers/HighlySelectiveConf2010/liu_cvpr2010.pdf>
    [Fast Detection of Multiple Textureless 3-D Objects]: <http://cmp.felk.cvut.cz/~matas/papers/cai-2013-textureless-icvs.pdf>
    [Contour Based Learning for Object Detection]: <ftp://svr-www.eng.cam.ac.uk/pub/reports/shotton_iccv05.pdf>
    [chamfer_matching.cpp]: <http://robots.stanford.edu/teichman/repos/track_classification/src/ros-pkg/chamfer_matching/src/chamfer_matching.cpp>
