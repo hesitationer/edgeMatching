@@ -12,11 +12,18 @@
   - [ ] detection at multiple scales and with rotation.
   - [ ] multiple detections at multiple scales and with rotation, highly cluttered background.
 
+## First result:
+![Template edges image:](/results/Edge_template.png "Template edges image")
+
+![Query edges image:](/results/Edge_query.png "Query edges image")
+
+![Detection at single scale:](/results/Simple_test_result_single_scale.png "Detection at single scale")
+
 ## References (non exhaustive):
 * [Chamfer Matching (contour based shape matching)] - Course from University of Pennsylvania by Nicu Știurcă.
 * [Fast Directional Chamfer Matching]
 * [Fast Detection of Multiple Textureless 3-D Objects]
-* [Contour-Based Learning for Object Detection]
+* [Contour Based Learning for Object Detection]
 
 ## Some available implementations in C++:
 * [chamfer_matching.cpp] - Implementation by Marius Muja, use the old C OpenCV API.
@@ -36,7 +43,7 @@
    [Chamfer Matching (contour based shape matching)]: <https://alliance.seas.upenn.edu/~cis581/wiki/Lectures/Fall2013/CIS581-21-13-chamfer-matching.pdf>
    [Fast Directional Chamfer Matching]: <https://www.umiacs.umd.edu/users/vashok/MyPapers/HighlySelectiveConf2010/liu_cvpr2010.pdf>
    [Fast Detection of Multiple Textureless 3-D Objects]: <http://cmp.felk.cvut.cz/~matas/papers/cai-2013-textureless-icvs.pdf>
-   [Contour-Based Learning for Object Detection]: <ftp://svr-www.eng.cam.ac.uk/pub/reports/shotton_iccv05.pdf>
+   [Contour Based Learning for Object Detection]: <ftp://svr-www.eng.cam.ac.uk/pub/reports/shotton_iccv05.pdf>
    [chamfer_matching.cpp]: <http://robots.stanford.edu/teichman/repos/track_classification/src/ros-pkg/chamfer_matching/src/chamfer_matching.cpp>
    [chamfer_matching.cpp (2)]: <https://github.com/wg-perception/transparent_objects/blob/master/src/chamfer_matching/chamfer_matching.cpp>
    [chamfer_matching.cpp (3)]: <https://github.com/varunagrawal/opencv/blob/2.4/modules/contrib/src/chamfermatching.cpp>
