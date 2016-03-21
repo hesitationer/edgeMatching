@@ -141,7 +141,9 @@ float getMinAngleError(const float angle1, const float angle2, const bool fast) 
     cv::Point2f vec2(fastCosine(angle2), fastSine(angle2));
     vec2 /= norm(vec2);
 
-    return (float) fastAcos(vec1.cross(vec2));
+    double angleError1 = fastAcos(vec1.dot(vec2));
+    double angleError2 = fastAcos(vec1.dot(-vec2));
+    return std::min(angleError1, angleError2);
   } else {
     cv::Point2f vec1(cos(angle1), sin(angle1));
     vec1 /= norm(vec1);
@@ -149,7 +151,9 @@ float getMinAngleError(const float angle1, const float angle2, const bool fast) 
     cv::Point2f vec2(cos(angle2), sin(angle2));
     vec2 /= norm(vec2);
 
-    return (float) acos(vec1.cross(vec2));
+    double angleError1 = acos(vec1.dot(vec2));
+    double angleError2 = acos(vec1.dot(-vec2));
+    return std::min(angleError1, angleError2);
   }
 
 #if 0
@@ -162,8 +166,16 @@ float getMinAngleError(const float angle1, const float angle2, const bool fast) 
 
 float getMinAngleError(const float angle1, const float angle2, const bool degree, const bool customAngle) {
   if(degree) {
-    return std::min( 360 - fabs(angle1-angle2), fabs(angle1-angle2) );
+    if(customAngle) {
+      return std::min( 180 - fabs(angle1-angle2), fabs(angle1-angle2) );
+    } else {
+      return std::min( 360 - fabs(angle1-angle2), fabs(angle1-angle2) );
+    }
   } else {
-    return std::min( 2.0*M_PI - fabs(angle1-angle2), fabs(angle1-angle2) );
+    if(customAngle) {
+      return std::min( M_PI - fabs(angle1-angle2), fabs(angle1-angle2) );
+    } else {
+      return std::min( 2.0*M_PI - fabs(angle1-angle2), fabs(angle1-angle2) );
+    }
   }
 }
