@@ -155,24 +155,17 @@ float getMinAngleError(const float angle1, const float angle2, const bool fast) 
     double angleError2 = acos(vec1.dot(-vec2));
     return std::min(angleError1, angleError2);
   }
-
-#if 0
-  double angleError1 = fastAcos(vec1 * vec2); //acos(vec1 * vec2);
-  double angleError2 = fastAcos(vec1 * (-vec2)); //acos(vec1 * (-vec2));
-
-  return std::min(angleError1, angleError2);
-#endif
 }
 
-float getMinAngleError(const float angle1, const float angle2, const bool degree, const bool customAngle) {
+float getMinAngleError(const float angle1, const float angle2, const bool degree, const bool customPolarAngle) {
   if(degree) {
-    if(customAngle) {
+    if(customPolarAngle) {
       return std::min( 180 - fabs(angle1-angle2), fabs(angle1-angle2) );
     } else {
       return std::min( 360 - fabs(angle1-angle2), fabs(angle1-angle2) );
     }
   } else {
-    if(customAngle) {
+    if(customPolarAngle) {
       return std::min( M_PI - fabs(angle1-angle2), fabs(angle1-angle2) );
     } else {
       return std::min( 2.0*M_PI - fabs(angle1-angle2), fabs(angle1-angle2) );

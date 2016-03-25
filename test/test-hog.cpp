@@ -242,7 +242,7 @@ cv::Mat computeHOG(const cv::Mat &img_gray, cv::HOGDescriptor &d) {
 }
 
 void detectHOG_impl(const cv::Mat &template_img, const cv::Mat &query_img, std::vector<cv::Rect> &detections,
-    const int offsetX=10, const int offsetY=10) {
+    const double distanceThresh=50.0, const int offsetX=10, const int offsetY=10) {
   int maxWidth = query_img.cols-template_img.cols;
   int maxHeight = query_img.rows-template_img.rows;
   cv::Mat matching_cost_map(maxHeight, maxWidth, CV_32F, std::numeric_limits<float>::max());
@@ -265,21 +265,32 @@ void detectHOG_impl(const cv::Mat &template_img, const cv::Mat &query_img, std::
     }
   }
 
-
   cv::Mat matching_cost_map_display;
   double minVal, maxVal;
   cv::Point minLoc, maxLoc;
   cv::minMaxLoc(matching_cost_map, &minVal, &maxVal, &minLoc, &maxLoc);
+
   matching_cost_map.convertTo(matching_cost_map_display, CV_8U, 255.0/(maxVal-minVal), -255.0*minVal/(maxVal-minVal));
 
-  detections.push_back(cv::Rect(minLoc.x, minLoc.y, template_img.cols, template_img.rows));
+  do {
+    cv::minMaxLoc(matching_cost_map, &minVal, &maxVal, &minLoc, &maxLoc);
+    std::cout << "HOG distance=" << minVal << " ; distanceThresh=" << distanceThresh << std::endl;
+
+    //"Reset the location" to find other detections
+    matching_cost_map.at<float>(minLoc.y, minLoc.x) = std::numeric_limits<float>::max();
+
+    //Add detection
+    detections.push_back(cv::Rect(minLoc.x, minLoc.y, template_img.cols, template_img.rows));
+  } while(minVal < distanceThresh);
+
 
   cv::imshow("matching_cost_map_display", matching_cost_map_display);
 //  cv::waitKey(0);
 }
 
-void detectHOG(const cv::Mat &template_img, const cv::Mat &query_img, std::vector<cv::Rect> &detections) {
-  detectHOG_impl(template_img, query_img, detections);
+void detectHOG(const cv::Mat &template_img, const cv::Mat &query_img, std::vector<cv::Rect> &detections,
+    const double distanceThresh=50.0) {
+  detectHOG_impl(template_img, query_img, detections, distanceThresh);
 }
 
 int main() {
@@ -288,12 +299,13 @@ int main() {
 //  computeHOG(cv::imread(DATA_LOCATION_PREFIX + "Inria_scene3.jpg"));
 
   cv::Mat template_img = cv::imread(DATA_LOCATION_PREFIX + "Inria_logo_template.jpg");
-  cv::Mat query_img = cv::imread(DATA_LOCATION_PREFIX + "Inria_scene.jpg");
+//  cv::Mat query_img = cv::imread(DATA_LOCATION_PREFIX + "Inria_scene.jpg");
 //  cv::Mat query_img = cv::imread(DATA_LOCATION_PREFIX + "Inria_scene2.jpg");
 //  cv::Mat query_img = cv::imread(DATA_LOCATION_PREFIX + "Inria_scene3.jpg");
+  cv::Mat query_img = cv::imread(DATA_LOCATION_PREFIX + "Inria_scene4.jpg");
 
   std::vector<cv::Rect> detections;
-  detectHOG(template_img, query_img, detections);
+  detectHOG(template_img, query_img, detections, 22.0);
 
   cv::Mat result;
   query_img.copyTo(result);

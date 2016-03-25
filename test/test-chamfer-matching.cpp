@@ -28,36 +28,59 @@ std::string DATA_LOCATION_PREFIX = DATA_DIR;
 
 int main() {
   cv::Mat img_template = cv::imread(DATA_LOCATION_PREFIX + "Inria_logo_template.jpg");
-  cv::Mat img_query = cv::imread(DATA_LOCATION_PREFIX + "Inria_scene3.jpg");
+//  cv::Mat img_query = cv::imread(DATA_LOCATION_PREFIX + "Inria_scene.jpg");
+//  cv::Mat img_query = cv::imread(DATA_LOCATION_PREFIX + "Inria_scene2.jpg");
+//  cv::Mat img_query = cv::imread(DATA_LOCATION_PREFIX + "Inria_scene3.jpg");
+//  cv::Mat img_query = cv::imread(DATA_LOCATION_PREFIX + "Inria_scene4.jpg");
+  cv::Mat img_query = cv::imread(DATA_LOCATION_PREFIX + "Inria_scene5.jpg");
 
 
-  ChamferMatching chamfer;
-  std::vector<Detection_t> bbDetections;
+  std::map<int, std::pair<cv::Rect, cv::Mat> > mapOfTemplates;
+  mapOfTemplates[1] = std::pair<cv::Rect, cv::Mat>(cv::Rect(0,0,-1,-1), img_template);
+
+  ChamferMatcher chamfer(mapOfTemplates);
+  std::vector<Detection_t> detections;
   bool useOrientation = true;
   float distanceThreshold = 100.0;
 
-  chamfer.setMatchingType(ChamferMatching::edgeForwardBackwardMatching);
+  chamfer.setCannyThreshold(70.0);
+  chamfer.setMatchingType(ChamferMatcher::edgeMatching);
+//  chamfer.setMatchingType(ChamferMatcher::edgeForwardBackwardMatching);
+//  chamfer.setMatchingType(ChamferMatcher::fullMatching);
+//  chamfer.setMatchingType(ChamferMatcher::lineMatching);
+//  chamfer.setMatchingType(ChamferMatcher::lineForwardBackwardMatching);
 
   double t = (double) cv::getTickCount();
-//  chamfer.detect(img_template, img_query, bbDetections, useOrientation, distanceThreshold);
-  chamfer.detectMultiScale(img_template, img_query, bbDetections, useOrientation);
+//  chamfer.detect(img_query, detections, useOrientation, distanceThreshold, 5.0f);
+  chamfer.detectMultiScale(img_query, detections, useOrientation);
   t = ((double) cv::getTickCount() - t) / cv::getTickFrequency() * 1000.0;
   std::cout << "Processing time=" << t << " ms" << std::endl;
 
   cv::Mat result;
   img_query.convertTo(result, CV_8UC3);
 
-  for(std::vector<Detection_t>::const_iterator it = bbDetections.begin(); it != bbDetections.end(); ++it) {
+  std::cout << "detections=" << detections.size() << std::endl;
+  for(std::vector<Detection_t>::const_iterator it = detections.begin(); it != detections.end(); ++it) {
     cv::rectangle(result, it->m_boundingBox, cv::Scalar(0,0,255), 2);
 
     std::stringstream ss;
+    //Chamfer distance
     ss << it->m_chamferDist;
     cv::Point ptText = it->m_boundingBox.tl() + cv::Point(10, 20);
+    cv::putText(result, ss.str(), ptText, cv::FONT_HERSHEY_SIMPLEX, 0.45, cv::Scalar(255,0,0), 2);
+
+    //Scale
+    ss.str("");
+    ss << it->m_scale;
+    ptText = it->m_boundingBox.tl() + cv::Point(10, 40);
     cv::putText(result, ss.str(), ptText, cv::FONT_HERSHEY_SIMPLEX, 0.45, cv::Scalar(255,0,0), 2);
 
     cv::imshow("result", result);
     cv::waitKey(0);
   }
+
+  //XXX:
+//  cv::imwrite("Simple_test_result_single_scale.png", result);
 
   cv::waitKey(0);
   return 0;

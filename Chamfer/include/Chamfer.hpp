@@ -16,8 +16,8 @@
  *
  *
  *****************************************************************************/
-#ifndef __ChamferMatching_h__
-#define __ChamferMatching_h__
+#ifndef __ChamferMatcher_h__
+#define __ChamferMatcher_h__
 
 #include <map>
 #include <cmath>
@@ -31,8 +31,12 @@ struct Detection_t {
   cv::Rect m_boundingBox;
   //! Corresponding Chamfer distance
   float m_chamferDist;
+  double m_scale;
+  //! Template index
+  int m_templateIndex;
 
-  Detection_t(const cv::Rect &r, const float dist) : m_boundingBox(r), m_chamferDist(dist) {
+  Detection_t(const cv::Rect &r, const float dist, const double scale)
+      : m_boundingBox(r), m_chamferDist(dist), m_scale(scale), m_templateIndex(-1) {
   }
 
   /*
@@ -75,22 +79,30 @@ struct Template_info_t {
   cv::Mat m_distImg;
   //! Corresponding edge orientation for each point for each contour
   std::vector<std::vector<float> > m_edgesOrientation;
+  //! Template Image
+  cv::Mat m_img;
   //! Image that contains at each location the edge orientation value of the corresponding
   //! nearest edge for the current pixel location
   cv::Mat m_mapOfEdgeOrientation;
-  //! Cluster each line orientation according to his polar angle
-  std::map<int, Line_info_t> m_mapOfLines;
+//  //! Cluster each line orientation according to his polar angle
+//  std::map<int, Line_info_t> m_mapOfLines;
   //! Image mask
   cv::Mat m_mask;
+  //! Query ROI
+  cv::Rect m_queryROI;
+  //! Vector of contours approximated by lines
+  std::vector<std::vector<Line_info_t> > m_vectorOfContourLines;
 
   Template_info_t(const std::vector<std::vector<cv::Point> > &contours, const cv::Mat &dist,
-      const cv::Mat &edgeOriImg, const std::vector<std::vector<float> > &edgesOri, const cv::Mat &mask)
-      : m_contours(contours), m_distImg(dist), m_mapOfEdgeOrientation(edgeOriImg),
-        m_edgesOrientation(edgesOri), m_mask(mask) {
+      const std::vector<std::vector<float> > &edgesOri, const cv::Mat &img, const cv::Mat &edgeOriImg,
+      const cv::Mat &mask, const std::vector<std::vector<Line_info_t> > &contourLines)
+      : m_contours(contours), m_distImg(dist), m_edgesOrientation(edgesOri), m_img(img),
+        m_mapOfEdgeOrientation(edgeOriImg), m_mask(mask), m_queryROI(0,0,-1,-1), m_vectorOfContourLines(contourLines) {
   }
 
   Template_info_t()
-      : m_contours(), m_distImg(), m_mapOfEdgeOrientation(), m_edgesOrientation(), m_mask() {
+      : m_contours(), m_distImg(), m_edgesOrientation(), m_img(), m_mapOfEdgeOrientation(),
+        m_mask(), m_queryROI(), m_vectorOfContourLines() {
   }
 };
 
@@ -108,26 +120,36 @@ struct Query_info_t {
   cv::Mat m_mapOfEdgeOrientation;
   //! Image that contains the id corresponding to the nearest edge point
   cv::Mat m_mapOfLabels;
+  //! Image mask
+  cv::Mat m_mask;
+  //! Vector of contours approximated by lines
+  std::vector<std::vector<Line_info_t> > m_vectorOfContourLines;
 
   Query_info_t(const std::vector<std::vector<cv::Point> > &contours, const cv::Mat &dist, const cv::Mat &img,
-      const cv::Mat &edgeOriImg, const std::vector<std::vector<float> > &edgesOri, const cv::Mat &labels)
+      const cv::Mat &edgeOriImg, const std::vector<std::vector<float> > &edgesOri, const cv::Mat &labels,
+      const cv::Mat &mask, const std::vector<std::vector<Line_info_t> > &contourLines)
       : m_contours(contours), m_distImg(dist), m_edgesOrientation(edgesOri), m_img(img),
-        m_mapOfEdgeOrientation(edgeOriImg), m_mapOfLabels(labels) {
+        m_mapOfEdgeOrientation(edgeOriImg), m_mapOfLabels(labels), m_mask(mask),
+        m_vectorOfContourLines(contourLines) {
   }
 
   Query_info_t()
-      : m_contours(), m_distImg(), m_img(), m_mapOfEdgeOrientation(), m_mapOfLabels() {
+      : m_contours(), m_distImg(), m_edgesOrientation(), m_img(), m_mapOfEdgeOrientation(), m_mapOfLabels(),
+        m_mask(), m_vectorOfContourLines() {
   }
 };
 
 
-class ChamferMatching {
+class ChamferMatcher {
 public:
   enum MatchingType {
-    edgeMatching, edgeForwardBackwardMatching, fullMatching
+    edgeMatching, edgeForwardBackwardMatching, fullMatching, lineMatching, lineForwardBackwardMatching
   };
 
-  ChamferMatching();
+  ChamferMatcher();
+  ChamferMatcher(const std::map<int, std::pair<cv::Rect, cv::Mat> > &mapOfTemplateImages);
+
+  static void computeCanny(const cv::Mat &img, cv::Mat &edges, const double threshold);
 
   static void computeDistanceTransform(const cv::Mat &img, cv::Mat &dist_img, cv::Mat &labels);
 
@@ -138,16 +160,22 @@ public:
   static void computeEdgeMapIndex(const std::vector<std::vector<cv::Point> > &contours,
       const cv::Mat &labels, std::map<int, std::pair<int, int> > &mapOfIndex);
 
+  static void createMapOfEdgeOrientations(const cv::Mat &img, const cv::Mat &labels, cv::Mat &mapOfEdgeOrientations,
+      std::vector<std::vector<cv::Point> > &contours, std::vector<std::vector<float> > &edges_orientation);
+
   /*
    * Create the template mask.
    */
   static void createTemplateMask(const cv::Mat &img, cv::Mat &mask, const double threshold=50.0);
 
-  void detect(const cv::Mat &img_template, const cv::Mat &img_query, std::vector<Detection_t> &bbDetections,
-      const bool useOrientation, const float distanceThresh=50.0f);
-  void detectMultiScale(const cv::Mat &img_template, const cv::Mat &img_query, std::vector<Detection_t> &bbDetections,
+  void detect(const cv::Mat &img_query, std::vector<Detection_t> &detections,
+      const bool useOrientation, const float distanceThresh=50.0f, const float lambda=5.0f,
+      const float weight_forward=1.0f, const float weight_backward=1.0f);
+
+  void detectMultiScale(const cv::Mat &img_query, std::vector<Detection_t> &detections,
       const bool useOrientation, const float distanceThresh=50.0f, const double scaleFactor=0.1,
-      const double minScale=0.4, const double maxScale=2.0);
+      const double minScale=0.5, const double maxScale=2.0, const float lambda=5.0f,
+      const float weight_forward=1.0f, const float weight_backward=1.0f);
 
   static void filterSingleContourPoint(std::vector<std::vector<cv::Point> > &contours, const size_t min=3);
 
@@ -164,8 +192,20 @@ public:
   static void getContoursOrientation(const std::vector<std::vector<cv::Point> > &contours,
       std::vector<std::vector<float> > &contoursOrientation);
 
-  inline MatchingType getMatchingType(const MatchingType &type) const {
+  inline double getCannyThreshold() const {
+    return m_cannyThreshold;
+  }
+
+  inline MatchingType getMatchingType() const {
     return m_matchingType;
+  }
+
+  void loadTemplateData(const std::string &filename);
+
+  void saveTemplateData(const std::string &filename);
+
+  inline void setCannyThreshold(const double threshold) {
+    m_cannyThreshold = threshold;
   }
 
   inline void setMatchingType(const MatchingType &type) {
@@ -178,22 +218,25 @@ public:
 
 private:
 
-  void computeCanny(const cv::Mat &img, cv::Mat &edges, const double threshold);
+  void approximateContours(const std::vector<std::vector<cv::Point> > &contours,
+      std::vector<std::vector<Line_info_t> > lines, const double epsilon=3.0);
 
-  double computeChamferDistance(const int offsetX, const int offsetY, cv::Mat &img_res,
-      const bool useOrientation=false, const float lambda=1.0f,
-      const float weight_foward=1.0f, const float weight_backward=1.0f);
+  double computeChamferDistance(const Template_info_t &template_info, const int offsetX, const int offsetY,
+      cv::Mat &img_res,
+      const bool useOrientation=false, const float lambda=5.0f,
+      const float weight_forward=1.0f, const float weight_backward=1.0f);
 
-  double computeFullChamferDistance(const int offsetX, const int offsetY, cv::Mat &img_res,
+  double computeFullChamferDistance(const Template_info_t &template_info, const int offsetX, const int offsetY,
+      cv::Mat &img_res,
       const bool useOrientation=false, const float lambda=5.0f);
 
-  void computeMatchingMap(cv::Mat &chamferMap, const bool useOrientation=false, const int xStep=5,
-      const int yStep=5, float lambda=0.5);
+  void computeMatchingMap(const Template_info_t &template_info, cv::Mat &chamferMap, const bool useOrientation=false,
+      const int xStep=5, const int yStep=5, const float lambda=5.0f, const float weight_forward=1.0f,
+      const float weight_backward=1.0f);
 
-  void createMapOfEdgeOrientations(const cv::Mat &img, const cv::Mat &labels, cv::Mat &mapOfEdgeOrientations);
-
-  void detect_impl(const cv::Mat &img_template, std::vector<Detection_t> &bbDetections,
-      const bool useOrientation);
+  void detect_impl(const Template_info_t &template_info, const double scale, std::vector<Detection_t> &bbDetections,
+      const bool useOrientation, const float distanceThresh, const float lambda=5.0f,
+      const float weight_forward=1.0f, const float weight_backward=1.0f);
 
   void groupDetections(const std::vector<Detection_t> &detections, std::vector<Detection_t> &groupedDetections);
 
@@ -202,12 +245,12 @@ private:
   void nonMaximaSuppression(const std::vector<Detection_t> &detections, std::vector<Detection_t> &maximaDetections);
 
   void prepareQuery(const cv::Mat &img_query);
-  void prepareTemplate(const cv::Mat &img_template);
+  Template_info_t prepareTemplate(const cv::Mat &img_template);
 
 
   MatchingType m_matchingType;
   Query_info_t m_query_info;
-  Template_info_t m_template_info;
+  std::map<int, std::map<double, Template_info_t> > m_mapOfTemplate_info;
 };
 
 #endif

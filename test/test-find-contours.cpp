@@ -27,7 +27,7 @@ void testContours(const std::string &filename) {
   cv::Mat img = cv::imread(filename);
 
   std::vector<std::vector<cv::Point> > contours;
-  ChamferMatching::getContours(img, contours);
+  ChamferMatcher::getContours(img, contours);
   cv::Mat displayFindContours = cv::Mat::zeros(img.size(), CV_32F);
   for(int i = 0; i < contours.size(); i++) {
     for(int j = 0; j < contours[i].size(); j++) {
@@ -37,7 +37,7 @@ void testContours(const std::string &filename) {
   std::cout << "displayFindContours=\n" << displayFindContours << std::endl;
 
   std::vector<std::vector<float> > edges_orientations;
-  ChamferMatching::getContoursOrientation(contours, edges_orientations);
+  ChamferMatcher::getContoursOrientation(contours, edges_orientations);
   cv::Mat displayContoursOrientation = cv::Mat::zeros(img.size(), CV_32F);
   for(int i = 0; i < edges_orientations.size(); i++) {
     for(int j = 0; j < edges_orientations[i].size(); j++) {

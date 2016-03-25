@@ -44,7 +44,7 @@ void getPolarLineEquation(const cv::Point &pt1, const cv::Point &pt2, double &th
 void getPolarLineEquation(const cv::Point &pt1, const cv::Point &pt2, double &theta, double &rho, double &length);
 
 float getMinAngleError(const float angle1, const float angle2, const bool fast);
-float getMinAngleError(const float angle1, const float angle2, const bool degree, const bool customAngle);
+float getMinAngleError(const float angle1, const float angle2, const bool degree, const bool customPolarAngle);
 
 static cv::Scalar randomColor(cv::RNG& rng) {
   int icolor = (unsigned) rng;

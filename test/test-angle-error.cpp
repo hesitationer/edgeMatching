@@ -34,6 +34,7 @@ void testAngleError(const int nbIterations, const bool bench=false) {
   }
 
   int length = 200, dist_text = 250;
+  double t1 = 0.0, t2 = 0.0;
   for(int cpt1 = 0; cpt1 < nbIterations; cpt1++) {
     cv::Mat img = cv::Mat::zeros(600, 800, CV_8UC3);
 
@@ -53,7 +54,9 @@ void testAngleError(const int nbIterations, const bool bench=false) {
     cv::Point endPt2 = startPt + cv::Point(cos(angle2)*length, sin(angle2)*length);
 
     //Min angle error - method1
+    double time1 = (double) cv::getTickCount();
     float angle_error1 = getMinAngleError(angle1, angle2, false);
+    t1 += ((double) cv::getTickCount() - time1) / cv::getTickFrequency();
     if(!bench) {
       std::cout << "angle_error1=" << (angle_error1*180.0/M_PI) << std::endl;
     }
@@ -63,7 +66,9 @@ void testAngleError(const int nbIterations, const bool bench=false) {
     getPolarLineEquation(startPt, endPt1, theta1, rho1);
     getPolarLineEquation(startPt, endPt2, theta2, rho2);
 
+    double time2 = (double) cv::getTickCount();
     float angle_error2 = getMinAngleError(theta1, theta2, false, true);
+    t2 += ((double) cv::getTickCount() - time2) / cv::getTickFrequency();
     if(!bench) {
       std::cout << "angle_error2=" << (angle_error2*180.0/M_PI) << std::endl << std::endl;
     }
@@ -103,6 +108,8 @@ void testAngleError(const int nbIterations, const bool bench=false) {
     }
   }
 
+  std::cout << "Total time vector method: " << (t1*1000.0) << " ms" << std::endl;
+  std::cout << "Total time polar custom method: " << (t2*1000.0) << " ms" << std::endl;
   if(bench) {
     std::cout << "Test is OK !" << std::endl;
   }
