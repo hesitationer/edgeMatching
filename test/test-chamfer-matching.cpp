@@ -35,13 +35,17 @@ int main() {
   cv::Mat img_query = cv::imread(DATA_LOCATION_PREFIX + "Inria_scene5.jpg");
 
 
-  std::map<int, std::pair<cv::Rect, cv::Mat> > mapOfTemplates;
-  mapOfTemplates[1] = std::pair<cv::Rect, cv::Mat>(cv::Rect(0,0,-1,-1), img_template);
+  std::map<int, cv::Mat> mapOfTemplates;
+  std::map<int, std::pair<cv::Rect, cv::Rect> > mapOfTemplateRois;
+  mapOfTemplates[1] = img_template;
+  mapOfTemplateRois[1] = std::pair<cv::Rect, cv::Rect>(cv::Rect(0,0,-1,-1), cv::Rect(0,0,-1,-1));
 
-  ChamferMatcher chamfer(mapOfTemplates);
+  ChamferMatcher chamfer(mapOfTemplates, mapOfTemplateRois);
   std::vector<Detection_t> detections;
   bool useOrientation = true;
-  float distanceThreshold = 100.0;
+  float distanceThreshold = 100.0, lambda = 100.0f;
+  float weight_forward = 1.0f, weight_backward = 1.0f;
+  bool useNonMaximaSuppression = true, useGroupDetections = true;
 
   chamfer.setCannyThreshold(70.0);
   chamfer.setMatchingType(ChamferMatcher::edgeMatching);
@@ -51,8 +55,10 @@ int main() {
 //  chamfer.setMatchingType(ChamferMatcher::lineForwardBackwardMatching);
 
   double t = (double) cv::getTickCount();
-//  chamfer.detect(img_query, detections, useOrientation, distanceThreshold, 5.0f);
-  chamfer.detectMultiScale(img_query, detections, useOrientation);
+//  chamfer.detect(img_query, detections, useOrientation, distanceThreshold, lambda, weight_forward,
+//  		weight_backward, useGroupDetections);
+  chamfer.detectMultiScale(img_query, detections, useOrientation, distanceThreshold, lambda, weight_forward,
+  		weight_backward, useNonMaximaSuppression, useGroupDetections);
   t = ((double) cv::getTickCount() - t) / cv::getTickFrequency() * 1000.0;
   std::cout << "Processing time=" << t << " ms" << std::endl;
 

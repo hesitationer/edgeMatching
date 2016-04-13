@@ -126,21 +126,61 @@ void testContoursOrientation(const std::string &filename) {
     }
   }
 
-
   cv::imshow("img", img);
   cv::imshow("edge_orientations_colormap_display", edge_orientations_colormap_display);
   cv::imshow("edge_orientation_line_img", edge_orientation_line_img);
+
+//  cv::imwrite("Inria_logo_template+contour_orientation.png", edge_orientation_line_img);
+
   cv::waitKey(0);
 }
 
+void testGradientOrientation(const std::string &filename) {
+  cv::Mat img = cv::imread(filename, CV_LOAD_IMAGE_GRAYSCALE);
+
+  cv::Mat gradX(img.size(), CV_32F);
+  cv::Mat gradY(img.size(), CV_32F);
+
+//  cv::Sobel(img, gradX, CV_32F, 1, 0, 1);
+//  cv::Sobel(img, gradY, CV_32F, 0, 1, 1);
+  cv::Scharr(img, gradX, CV_32F, 1, 0);
+  cv::Scharr(img, gradY, CV_32F, 0, 1);
+
+  cv::Mat angle;
+  cv::phase(gradX, gradY, angle, true);
+
+  //Print template
+  for(int i = 0; i < img.rows; i++) {
+  	const uchar *ptr_row = img.ptr<uchar>(i);
+  	for(int j = 0; j < img.cols; j++) {
+  		std::cout << static_cast<unsigned>(ptr_row[j]) << " ; ";
+  	}
+  	std::cout << std::endl;
+  }
+
+  //Print gradient orientation
+  std::cout << "\n" << std::endl;
+
+  for(int i = 0; i < angle.rows; i++) {
+  	const float *ptr_row = angle.ptr<float>(i);
+  	for(int j = 0; j < angle.cols; j++) {
+  		std::cout << ptr_row[j] << " ; ";
+  	}
+  	std::cout << std::endl;
+  }
+}
+
 int main() {
-  testContoursOrientation(DATA_LOCATION_PREFIX + "Inria_logo_template.jpg");
+//  testContoursOrientation(DATA_LOCATION_PREFIX + "Inria_logo_template.jpg");
 //  testContoursOrientation(DATA_LOCATION_PREFIX + "Template_triangle.png");
 //  testContoursOrientation(DATA_LOCATION_PREFIX + "Template_rectangle.png");
 //  testContoursOrientation(DATA_LOCATION_PREFIX + "Template_circle.png");
 
 //  checkContoursIndex(DATA_LOCATION_PREFIX + "Template_circle.png");
 //  checkContoursIndex(DATA_LOCATION_PREFIX + "Inria_logo_template.jpg");
+
+//	testGradientOrientation(DATA_LOCATION_PREFIX + "Template_rectangle.png");
+	testGradientOrientation(DATA_LOCATION_PREFIX + "Template_triangle.png");
 
   return 0;
 }
