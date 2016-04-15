@@ -37,6 +37,17 @@ set(CHAMFER_SOURCES
 )
 
 
+set(HOG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/HOG)
+include_directories(${HOG_DIR})
+
+set(HOG_HEADERS 
+  ${HOG_DIR}/include/HOGDetector.hpp
+)
+set(HOG_SOURCES 
+  ${HOG_DIR}/src/HOGDetector.cpp
+)
+
+
 # Define folder with data for tests
 add_definitions( -DDATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/")
 
@@ -55,7 +66,7 @@ set(test_cpp
 foreach(cpp ${test_cpp})
   get_filename_component(target ${cpp} NAME_WE)
   include_directories(${OpenCV_INCLUDE_DIRS})
-  add_executable(${target} ${cpp} ${CHAMFER_HEADERS} ${CHAMFER_SOURCES})
+  add_executable(${target} ${cpp} ${CHAMFER_HEADERS} ${CHAMFER_SOURCES} ${HOG_HEADERS} ${HOG_SOURCES})
   # Link your application with OpenCV libraries
   target_link_libraries(${target} ${OpenCV_LIBS})
 endforeach()
