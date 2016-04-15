@@ -269,6 +269,10 @@ void HOGDetector::detect_impl(const Template_info_t &template_info, const Query_
 
   int maxWidth = query_info.m_size.width - template_width;
   int maxHeight = query_info.m_size.height - template_height;
+  if(maxWidth <= 0 || maxHeight <= 0) {
+    return;
+  }
+
   cv::Mat matching_cost_map(maxHeight, maxWidth, CV_32F, std::numeric_limits<float>::max());
 
   cv::Rect query_roi(0, 0, template_width, template_height);
