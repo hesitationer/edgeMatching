@@ -159,6 +159,10 @@ struct Query_info_t {
   std::vector<std::vector<float> > m_edgesOrientation;
   //! Query Image.
   cv::Mat m_img;
+  //! Integral distance transform image.
+  cv::Mat m_integralDistImg;
+  //! Integral edge orientation.
+  cv::Mat m_integralEdgeOrientation;
   //! Image that contains at each location the edge orientation value of the corresponding
   //! nearest edge for the current pixel location.
   cv::Mat m_mapOfEdgeOrientation;
@@ -170,16 +174,17 @@ struct Query_info_t {
   std::vector<std::vector<Line_info_t> > m_vectorOfContourLines;
 
   Query_info_t(const std::vector<std::vector<cv::Point> > &contours, const cv::Mat &dist, const cv::Mat &img,
-      const cv::Mat &edgeOriImg, const std::vector<std::vector<float> > &edgesOri, const cv::Mat &labels,
-      const cv::Mat &mask, const std::vector<std::vector<Line_info_t> > &contourLines)
-  : m_contours(contours), m_distImg(dist), m_edgesOrientation(edgesOri), m_img(img),
-    m_mapOfEdgeOrientation(edgeOriImg), m_mapOfLabels(labels), m_mask(mask),
-    m_vectorOfContourLines(contourLines) {
+      const cv::Mat &integralDistImg, const cv::Mat &integralEdgeOrientation, const cv::Mat &edgeOriImg,
+      const std::vector<std::vector<float> > &edgesOri, const cv::Mat &labels, const cv::Mat &mask,
+      const std::vector<std::vector<Line_info_t> > &contourLines)
+  : m_contours(contours), m_distImg(dist), m_edgesOrientation(edgesOri), m_img(img), m_integralDistImg(integralDistImg),
+    m_integralEdgeOrientation(integralEdgeOrientation), m_mapOfEdgeOrientation(edgeOriImg), m_mapOfLabels(labels),
+    m_mask(mask), m_vectorOfContourLines(contourLines) {
   }
 
   Query_info_t()
-  : m_contours(), m_distImg(), m_edgesOrientation(), m_img(), m_mapOfEdgeOrientation(), m_mapOfLabels(),
-    m_mask(), m_vectorOfContourLines() {
+  : m_contours(), m_distImg(), m_edgesOrientation(), m_img(), m_integralDistImg(), m_integralEdgeOrientation(),
+    m_mapOfEdgeOrientation(), m_mapOfLabels(), m_mask(), m_vectorOfContourLines() {
   }
 };
 
@@ -188,7 +193,7 @@ class ChamferMatcher {
 public:
   enum MatchingType {
     edgeMatching, edgeForwardBackwardMatching, fullMatching, maskMatching, forwardBackwardMaskMatching,
-    lineMatching, lineForwardBackwardMatching
+    lineMatching, lineForwardBackwardMatching, lineIntegralMatching
   };
 
   enum RejectionType {
@@ -232,8 +237,16 @@ public:
   static void computeEdgeMapIndex(const std::vector<std::vector<cv::Point> > &contours,
       const cv::Mat &labels, std::map<int, std::pair<int, int> > &mapOfIndex);
 
+  static void computeIntegralDistanceTransform(const cv::Mat &dt, cv::Mat &idt, const int nbClusters,
+      const bool useLineIterator=true);
+
   static void createMapOfEdgeOrientations(const cv::Mat &img, const cv::Mat &labels, cv::Mat &mapOfEdgeOrientations,
       std::vector<std::vector<cv::Point> > &contours, std::vector<std::vector<float> > &edges_orientation);
+
+  /*
+   * Create a LUT that maps an angle in degree to the corresponding index.
+   */
+  static std::vector<int> createOrientationLUT(int nbClusters);
 
   /*
    * Create the template mask.
@@ -379,7 +392,7 @@ public:
 private:
 
   void approximateContours(const std::vector<std::vector<cv::Point> > &contours,
-      std::vector<std::vector<Line_info_t> > lines, const double epsilon=3.0);
+      std::vector<std::vector<Line_info_t> > &lines, const double epsilon=3.0);
 
   double computeChamferDistance(const Template_info_t &template_info, const Query_info_t &query_info,
       const int offsetX, const int offsetY,
@@ -446,6 +459,8 @@ public:
   std::map<int, cv::Mat> m_mapOfTemplateImages;
 private:
 
+  //! LUT that maps an angle in degree to a cluster index.
+  std::vector<int> m_orientationLUT;
   //! Pyramid type to use.
   PyramidType m_pyramidType;
   //! Rejection type to quickly decide if the current location should be further match with Chamfer method.

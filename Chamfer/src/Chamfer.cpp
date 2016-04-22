@@ -27,13 +27,13 @@
 
 ChamferMatcher::ChamferMatcher() :
 #if DEBUG
-m_debug(false),
+      m_debug(false),
 #endif
-m_cannyThreshold(50.0), m_maxDescriptorDistanceError(10.0f), m_maxDescriptorOrientationError(0.35f),
-m_minNbDescriptorMatches(5), m_gridDescriptorSize(4,4), m_matchingStrategyType(templateMatching),
-m_matchingType(edgeMatching), /*m_query_info(), */m_mapOfTemplate_info(), m_mapOfTemplateImages(),
-m_pyramidType(noPyramid), m_rejectionType(gridDescriptorRejection), m_scaleMax(200),
-m_scaleMin(50), m_scaleStep(10), m_scaleVector() {
+      m_cannyThreshold(50.0), m_maxDescriptorDistanceError(10.0f), m_maxDescriptorOrientationError(0.35f),
+      m_minNbDescriptorMatches(5), m_gridDescriptorSize(4,4), m_matchingStrategyType(templateMatching),
+      m_matchingType(edgeMatching), /*m_query_info(), */m_mapOfTemplate_info(), m_mapOfTemplateImages(),
+      m_orientationLUT(), m_pyramidType(noPyramid), m_rejectionType(gridDescriptorRejection), m_scaleMax(200),
+      m_scaleMin(50), m_scaleStep(10), m_scaleVector() {
 
   int regular_scale = 100;
   m_scaleVector.push_back(regular_scale);
@@ -51,13 +51,13 @@ m_scaleMin(50), m_scaleStep(10), m_scaleVector() {
 ChamferMatcher::ChamferMatcher(const std::map<int, cv::Mat> &mapOfTemplateImages,
     const std::map<int, std::pair<cv::Rect, cv::Rect> > &mapOfTemplateRois) :
 #if DEBUG
-          m_debug(false),
+      m_debug(false),
 #endif
-          m_cannyThreshold(50.0), m_maxDescriptorDistanceError(10.0f), m_maxDescriptorOrientationError(0.35f),
-          m_minNbDescriptorMatches(5), m_gridDescriptorSize(4,4), m_matchingStrategyType(templateMatching),
-          m_matchingType(edgeMatching), /*m_query_info(), */m_mapOfTemplate_info(), m_mapOfTemplateImages(),
-          m_pyramidType(noPyramid), m_rejectionType(gridDescriptorRejection), m_scaleMax(200),
-          m_scaleMin(50), m_scaleStep(10), m_scaleVector() {
+      m_cannyThreshold(50.0), m_maxDescriptorDistanceError(10.0f), m_maxDescriptorOrientationError(0.35f),
+      m_minNbDescriptorMatches(5), m_gridDescriptorSize(4,4), m_matchingStrategyType(templateMatching),
+      m_matchingType(edgeMatching), /*m_query_info(), */m_mapOfTemplate_info(), m_mapOfTemplateImages(),
+      m_orientationLUT(), m_pyramidType(noPyramid), m_rejectionType(gridDescriptorRejection), m_scaleMax(200),
+      m_scaleMin(50), m_scaleStep(10), m_scaleVector() {
 
   if(mapOfTemplateImages.size() != mapOfTemplateRois.size()) {
     std::cerr << "Different size between templates and rois!" << std::endl;
@@ -68,7 +68,7 @@ ChamferMatcher::ChamferMatcher(const std::map<int, cv::Mat> &mapOfTemplateImages
 }
 
 void ChamferMatcher::approximateContours(const std::vector<std::vector<cv::Point> > &contours,
-    std::vector<std::vector<Line_info_t> > contour_lines, const double epsilon) {
+    std::vector<std::vector<Line_info_t> > &contour_lines, const double epsilon) {
 
   for(size_t i = 0; i < contours.size(); i++) {
     //Approximate the current contour
@@ -85,8 +85,10 @@ void ChamferMatcher::approximateContours(const std::vector<std::vector<cv::Point
       lines.push_back(Line_info_t(length, rho, theta, approx_contour[j], approx_contour[j+1]));
     }
 
-    //Add the lines
-    contour_lines.push_back(lines);
+    if(!lines.empty()) {
+      //Add the lines
+      contour_lines.push_back(lines);
+    }
   }
 }
 
@@ -121,48 +123,119 @@ double ChamferMatcher::computeChamferDistance(const Template_info_t &template_in
 
   //TODO: add a normalization step?
 
-  if(m_matchingType == lineMatching || m_matchingType == lineForwardBackwardMatching) {
+  if(m_matchingType == lineMatching || m_matchingType == lineForwardBackwardMatching ||
+      m_matchingType == lineIntegralMatching) {
     //Match using approximated lines
 
-    //"Forward matching" <==> matches lines from template to the nearest lines in the query
-    for(size_t i = 0; i < template_info.m_vectorOfContourLines.size(); i++) {
-      for(size_t j = 0; j < template_info.m_vectorOfContourLines[i].size(); j++) {
-        cv::Point pt1 = template_info.m_vectorOfContourLines[i][j].m_pointStart;
-        cv::Point pt2 = template_info.m_vectorOfContourLines[i][j].m_PointEnd;
+    if(m_matchingType == lineIntegralMatching) {
 
-        //Iterate through pixels on line
-        cv::LineIterator it_line(query_info.m_distImg, pt1, pt2, 8);
-        for(int cpt = 0; cpt < it_line.count; cpt++, ++it_line, nbElements++) {
+      //Use integral image
+      for(size_t i = 0; i < template_info.m_vectorOfContourLines.size(); i++) {
+        for(size_t j = 0; j < template_info.m_vectorOfContourLines[i].size(); j++) {
+          cv::Point pt1 = template_info.m_vectorOfContourLines[i][j].m_pointStart;
+          cv::Point pt2 = template_info.m_vectorOfContourLines[i][j].m_PointEnd;
+          cv::Point offset_pt(offsetX, offsetY);
 
-          if(useOrientation) {
-            chamfer_dist += weight_forward * ( query_info.m_distImg.at<float>(it_line.pos()) + lambda *
-                getMinAngleError(template_info.m_mapOfEdgeOrientation.at<float>(it_line.pos()),
-                    query_info.m_mapOfEdgeOrientation.at<float>(it_line.pos()), false, true) );
+          //Add current window offset
+          pt1 += offset_pt;
+          pt2 += offset_pt;
+
+          double theta = template_info.m_vectorOfContourLines[i][j].m_theta;
+          int use_angle = (int) round((theta-M_PI)*180.0/M_PI) - 90;
+          use_angle = use_angle < 0 ? use_angle + 180 : use_angle;
+
+          int h = m_orientationLUT[use_angle];
+          const float *ptr_idt_start = query_info.m_integralDistImg.ptr<float>(h) + pt1.y*query_info.m_integralDistImg.size[2];
+          const float *ptr_idt_end = query_info.m_integralDistImg.ptr<float>(h) + pt2.y*query_info.m_integralDistImg.size[2];
+          float diff_dt = fabs( ptr_idt_start[pt1.x] - ptr_idt_end[pt2.x] );
+
+          if(useOrientation && false) {
+//            chamfer_dist += weight_forward * ( query_info.m_distImg.at<float>(it_line.pos()) + lambda *
+//                getMinAngleError(template_info.m_mapOfEdgeOrientation.at<float>(it_line.pos()),
+//                    query_info.m_mapOfEdgeOrientation.at<float>(it_line.pos()), false, true) );
+
+            const float *ptr_idt_edge_ori_start = query_info.m_integralEdgeOrientation.ptr<float>(h) +
+                pt1.y*query_info.m_integralEdgeOrientation.size[2];
+            const float *ptr_idt_edge_ori_end = query_info.m_integralEdgeOrientation.ptr<float>(h) +
+                pt2.y*query_info.m_integralEdgeOrientation.size[2];
+            float diff_edge_ori = fabs( ptr_idt_edge_ori_start[pt1.x] - ptr_idt_edge_ori_end[pt2.x] );
+
+            chamfer_dist += weight_forward * ( diff_dt + lambda *
+                            getMinAngleError(theta,
+                                diff_edge_ori, false, true) );
           } else {
-            chamfer_dist += weight_forward * ( query_info.m_distImg.at<float>(it_line.pos()) );
+//            chamfer_dist += weight_forward * ( query_info.m_distImg.at<float>(it_line.pos()) );
+            chamfer_dist += weight_forward * ( diff_dt );
           }
         }
       }
-    }
+    } else {
 
-    if(m_matchingType == lineForwardBackwardMatching) {
-      //"Backward matching" <==> matches edges from query to the nearest edges in the template
-      for(size_t i = 0; i < query_info.m_vectorOfContourLines.size(); i++) {
-        for(size_t j = 0; j < query_info.m_vectorOfContourLines[i].size(); j++) {
-          cv::Point pt1 = query_info.m_vectorOfContourLines[i][j].m_pointStart;
-          cv::Point pt2 = query_info.m_vectorOfContourLines[i][j].m_PointEnd;
+      //"Forward matching" <==> matches lines from template to the nearest lines in the query
+      for(size_t i = 0; i < template_info.m_vectorOfContourLines.size(); i++) {
+        for(size_t j = 0; j < template_info.m_vectorOfContourLines[i].size(); j++) {
+          cv::Point pt1 = template_info.m_vectorOfContourLines[i][j].m_pointStart;
+          cv::Point pt2 = template_info.m_vectorOfContourLines[i][j].m_PointEnd;
+          cv::Point offset_pt(offsetX, offsetY);
+
+          //Add current window offset
+          pt1 += offset_pt;
+          pt2 += offset_pt;
 
           //Iterate through pixels on line
-          cv::LineIterator it_line(template_info.m_distImg, pt1, pt2, 8);
-          for(int cpt = 0; cpt < it_line.count; cpt++, ++it_line, nbElements++) {
+          cv::LineIterator it_line(query_info.m_distImg, pt1, pt2, 8);
+          cv::LineIterator it_line_edge_ori_query(query_info.m_mapOfEdgeOrientation, pt1, pt2, 8);
+          cv::LineIterator it_line_edge_ori_template(template_info.m_mapOfEdgeOrientation, pt1-offset_pt, pt2-offset_pt, 8);
+
+          for(int cpt = 0; cpt < it_line.count; cpt++, ++it_line, nbElements++,
+              ++it_line_edge_ori_query, ++it_line_edge_ori_template) {
+            cv::Point current_pos = it_line.pos();
 
             if(useOrientation) {
-              chamfer_dist += weight_backward * ( template_info.m_distImg.at<float>(it_line.pos()) + lambda *
-                  getMinAngleError(query_info.m_mapOfEdgeOrientation.at<float>(it_line.pos()),
-                      template_info.m_mapOfEdgeOrientation.at<float>(it_line.pos()), false, true) );
+              float value_dist, value_edge_ori_query, value_edge_ori_template;
+              memcpy(&value_dist, it_line.ptr, sizeof(float));
+              memcpy(&value_edge_ori_query, it_line_edge_ori_query.ptr, sizeof(float));
+              memcpy(&value_edge_ori_template, it_line_edge_ori_template.ptr, sizeof(float));
+
+              chamfer_dist += weight_forward * ( value_dist + lambda *
+                  getMinAngleError(value_edge_ori_template,
+                      value_edge_ori_query, false, true) );
             } else {
-              chamfer_dist += weight_backward * ( template_info.m_distImg.at<float>(it_line.pos()) );
+              float value;
+              memcpy(&value, it_line.ptr, sizeof(float));
+              chamfer_dist += weight_forward * ( value );
             }
+          }
+        }
+      }
+
+      if(m_matchingType == lineForwardBackwardMatching) {
+        //"Backward matching" <==> matches edges from query to the nearest edges in the template
+        for(size_t i = 0; i < query_info.m_vectorOfContourLines.size(); i++) {
+          for(size_t j = 0; j < query_info.m_vectorOfContourLines[i].size(); j++) {
+            cv::Point pt1 = query_info.m_vectorOfContourLines[i][j].m_pointStart;
+            cv::Point pt2 = query_info.m_vectorOfContourLines[i][j].m_PointEnd;
+            //TODO:
+//            cv::Point offset_pt(offsetX, offsetY);
+//
+//            //Add current window offset
+//            pt1 += offset_pt;
+//            pt2 += offset_pt;
+//
+//            //Iterate through pixels on line
+//            cv::LineIterator it_line(template_info.m_distImg, pt1, pt2, 8);
+//            for(int cpt = 0; cpt < it_line.count; cpt++, ++it_line, nbElements++) {
+//              cv::Point current_pos = it_line.pos();
+//
+//              if(useOrientation) {
+//                chamfer_dist += weight_backward * ( template_info.m_distImg.at<float>(it_line.pos()) + lambda *
+//                    getMinAngleError(query_info.m_mapOfEdgeOrientation.at<float>(it_line.pos()),
+//                        template_info.m_mapOfEdgeOrientation.at<float>(it_line.pos()), false, true) );
+//              } else {
+//                chamfer_dist += weight_backward * ( template_info.m_distImg.at<float>(it_line.pos()) );
+//                chamfer_dist += weight_backward * ( template_info.m_distImg.at<float>(it_line.pos()) );
+//              }
+//            }
           }
         }
       }
@@ -380,6 +453,214 @@ double ChamferMatcher::computeFullChamferDistance(const Template_info_t &templat
   return chamfer_dist / nbElements;
 }
 
+void ChamferMatcher::computeIntegralDistanceTransform(const cv::Mat &dt, cv::Mat &idt, const int nbClusters,
+      const bool useLineIterator) {
+  int size[3] = {nbClusters, dt.rows, dt.cols};
+
+  idt = cv::Mat(3, size, CV_32F);
+
+  int angle_step = 180 / nbClusters;
+  float *ptr_row_idt;
+  const float *ptr_row_dt;
+  const float *ptr_row_idt_prev;
+
+  std::vector<int> delta_x(nbClusters);
+  std::vector<float> delta_s(nbClusters);
+
+  if(!useLineIterator) {
+    for(int h = 0; h < nbClusters; h++) {
+      int angle = h*angle_step;
+
+      if(angle != 0 && angle != 90) {
+        delta_x[h] = round(1 / tan(angle*M_PI/180.0));
+        delta_s[h] = 1 / sin(angle*M_PI/180.0);
+      }
+    }
+  }
+
+  for(int h = 0; h < nbClusters; h++) {
+    ptr_row_idt = idt.ptr<float>(h);
+    ptr_row_dt = dt.ptr<float>(0); //i == 0
+
+    //Initialize first row
+    //i == 0
+    for(int j = 0; j < dt.cols; j++) {
+      ptr_row_idt[j] = ptr_row_dt[j];
+    }
+
+    //Initialize first column
+    //j == 0
+    for(int i = 0; i < dt.rows; i++) {
+      ptr_row_idt = idt.ptr<float>(h) + i*dt.cols;
+      ptr_row_idt[0] = dt.ptr<float>(i)[0];
+    }
+
+    int angle = h*angle_step;
+    if(angle == 90) {
+      //Vertical lines
+
+      for(int i = 1; i < dt.rows; i++) {
+        ptr_row_idt = idt.ptr<float>(h) + i*dt.cols;
+        ptr_row_idt_prev = idt.ptr<float>(h) + (i-1)*dt.cols;
+        ptr_row_dt = dt.ptr<float>(i);
+
+        for(int j = 0; j < dt.cols; j++) {
+          ptr_row_idt[j] = ptr_row_idt_prev[j] + ptr_row_dt[j];
+        }
+      }
+    } else if(angle == 0) {
+      //Horizontal lines
+
+      for(int i = 0; i < dt.rows; i++) {
+        ptr_row_idt = idt.ptr<float>(h) + i*dt.cols;
+        ptr_row_idt_prev = idt.ptr<float>(h) + (i)*dt.cols;
+        ptr_row_dt = dt.ptr<float>(i);
+
+        for(int j = 1; j < dt.cols; j++) {
+          ptr_row_idt[j] = ptr_row_idt_prev[j-1] + ptr_row_dt[j];
+        }
+      }
+    } else {
+      if(useLineIterator) {
+        cv::Mat slice_idt(dt.size(), CV_32F, idt.ptr<float>(h));
+        cv::Mat slice_idt_mask = cv::Mat::zeros(dt.size(), CV_8U);
+
+        int delta_x = round((dt.rows-1) / tan(angle*M_PI/180.0));
+        //Start from top row
+        for(int j = 0; j < dt.cols; j++) {
+          cv::Point start_diagonal(j, 0), end_diagonal(j+delta_x, dt.rows-1);
+
+          cv::LineIterator it_line_idt(slice_idt, start_diagonal, end_diagonal, 8);
+          cv::LineIterator it_line_dt(dt, start_diagonal, end_diagonal, 8);
+          cv::LineIterator it_line_idt_mask(slice_idt_mask, start_diagonal, end_diagonal, 8);
+
+          float dt_sum = 0.0f;
+          for(int cpt = 0; cpt < it_line_idt.count; cpt++, ++it_line_idt, ++it_line_dt, ++it_line_idt_mask) {
+            //Copy current distance transform value
+            float value_dt;
+            memcpy(&value_dt, it_line_dt.ptr, sizeof(float));
+
+            dt_sum += value_dt;
+
+            //Copy integral distance transform value
+            memcpy(it_line_idt.ptr, &dt_sum, sizeof(float));
+
+            //Update IDT mask
+            (*it_line_idt_mask.ptr) = 255;
+          }
+        }
+
+        if(angle < 90) {
+          int delta_y = round(tan(angle*M_PI/180.0)*(dt.cols-1));
+          //Start from left column
+          for(int i = 0; i < dt.rows; i++) {
+            cv::Point start_diagonal(0, i), end_diagonal(dt.cols-1, i+delta_y);
+
+            cv::LineIterator it_line_idt(slice_idt, start_diagonal, end_diagonal, 8);
+            cv::LineIterator it_line_dt(dt, start_diagonal, end_diagonal, 8);
+            cv::LineIterator it_line_idt_mask(slice_idt_mask, start_diagonal, end_diagonal, 8);
+
+            float dt_sum = 0.0f;
+            for(int cpt = 0; cpt < it_line_idt.count; cpt++, ++it_line_idt, ++it_line_dt, ++it_line_idt_mask) {
+              //Copy current distance transform value
+              float value;
+              memcpy(&value, it_line_dt.ptr, sizeof(float));
+
+              dt_sum += value;
+              //Copy integral distance transform value
+              memcpy(it_line_idt.ptr, &dt_sum, sizeof(float));
+
+              //Update IDT mask
+              (*it_line_idt_mask.ptr) = 255;
+            }
+          }
+        } else {
+          //Initialize last column
+          //j == cols-1
+          for(int i = 0; i < dt.rows; i++) {
+            ptr_row_idt = idt.ptr<float>(h) + i*dt.cols;
+            ptr_row_idt[dt.cols-1] = dt.ptr<float>(i)[dt.cols-1];
+          }
+
+          int delta_y = round(tan(angle*M_PI/180.0)*( -(dt.cols-1) ));
+          //Start from right column
+          for(int i = 0; i < dt.rows; i++) {
+            cv::Point start_diagonal(dt.cols-1, i), end_diagonal(0, i);
+            end_diagonal.y += delta_y;
+
+            cv::LineIterator it_line_idt(slice_idt, start_diagonal, end_diagonal, 8);
+            cv::LineIterator it_line_dt(dt, start_diagonal, end_diagonal, 8);
+            cv::LineIterator it_line_idt_mask(slice_idt_mask, start_diagonal, end_diagonal, 8);
+
+            float dt_sum = 0.0f;
+            for(int cpt = 0; cpt < it_line_idt.count; cpt++, ++it_line_idt, ++it_line_dt, ++it_line_idt_mask) {
+              //Copy current distance transform value
+              float value;
+              memcpy(&value, it_line_dt.ptr, sizeof(float));
+
+              dt_sum += value;
+              //Copy integral distance transform value
+              memcpy(it_line_idt.ptr, &dt_sum, sizeof(float));
+
+              //Update IDT mask
+              (*it_line_idt_mask.ptr) = 255;
+            }
+          }
+        }
+
+        //Fill "holes"
+        float *ptr_slice_idt;
+        uchar *ptr_slice_idt_mask;
+
+        for(int i = 0; i < slice_idt.rows; i++) {
+          ptr_slice_idt_mask = slice_idt_mask.ptr<uchar>(i);
+          ptr_slice_idt = slice_idt.ptr<float>(i);
+
+          for(int j = 0; j < slice_idt.cols; j++) {
+
+            //"Hole"
+            if(ptr_slice_idt_mask[j] == 0) {
+              float nearest_idt;
+              bool find_nearest = false;
+
+              for(int a = -1; a <= 1 && !find_nearest; a++) {
+                for(int b = -1; b <= 1 && !find_nearest; b++) {
+                  int coordX = j + b, coordY = i + a;
+
+                  if(coordX >= 0 && coordX < slice_idt_mask.cols-1 && coordY >= 0 && coordY < slice_idt_mask.rows-1) {
+                    if(slice_idt_mask.ptr<uchar>(coordY)[coordX] > 0) {
+                      nearest_idt = slice_idt.ptr<float>(coordY)[coordX];
+                      find_nearest = true;
+                    }
+                  }
+                }
+              }
+
+              //Assign nearest value
+              ptr_slice_idt[j] = nearest_idt;
+              ptr_slice_idt_mask[j] = 255;
+            }
+          }
+        }
+
+      } else {
+        for(int i = 1; i < dt.rows; i++) {
+          ptr_row_idt = idt.ptr<float>(h) + i*dt.cols;
+          ptr_row_idt_prev = idt.ptr<float>(h) + (i-1)*dt.cols;
+          ptr_row_dt = dt.ptr<float>(i);
+
+          for(int j = 0; j < dt.cols; j++) {
+            int x_index = j - delta_x[h] >= 0 ? (j - delta_x[h] < dt.cols ? j - delta_x[h] : dt.cols-1) : 0;
+            ptr_row_idt[j] = ptr_row_idt_prev[x_index] +
+                delta_s[h]*
+                ptr_row_dt[j];
+          }
+        }
+      }
+    }
+  }
+}
+
 /*
  * Compute the image that contains at each pixel location the Chamfer distance.
  */
@@ -435,24 +716,27 @@ void ChamferMatcher::computeMatchingMap(const Template_info_t &template_info, co
 #endif
 
       switch(m_matchingType) {
-      case edgeMatching:
-      case edgeForwardBackwardMatching:
-        ptr_row[j] = computeChamferDistance(template_info, query_info, j, i,
-#if DEBUG
-            res,
-#endif
-            useOrientation, lambda, weight_forward, weight_backward);
-        break;
-
       case fullMatching:
       case maskMatching:
       case forwardBackwardMaskMatching:
-      default:
         ptr_row[j] = computeFullChamferDistance(template_info, query_info, j, i,
 #if DEBUG
             res,
 #endif
             useOrientation, lambda);
+        break;
+
+      case edgeMatching:
+      case edgeForwardBackwardMatching:
+      case lineMatching:
+      case lineForwardBackwardMatching:
+      case lineIntegralMatching:
+      default:
+        ptr_row[j] = computeChamferDistance(template_info, query_info, j, i,
+#if DEBUG
+            res,
+#endif
+            useOrientation, lambda, weight_forward, weight_backward);
         break;
       }
 
@@ -551,6 +835,28 @@ void ChamferMatcher::createMapOfEdgeOrientations(const cv::Mat &img, const cv::M
       ptr_row_edgeOri[j] = edges_orientation[idx1][idx2];
     }
   }
+}
+
+/*
+ * Create a LUT that maps an angle in degree to the corresponding index.
+ */
+std::vector<int> ChamferMatcher::createOrientationLUT(int nbClusters) {
+  std::vector<int> orientationLUT;
+  int maxAngle = 180;
+  int step = maxAngle / (double) nbClusters;
+
+  for(int i = 0; i < nbClusters; i++) {
+    for(size_t j = 0; j < step; j++) {
+      orientationLUT.push_back(i);
+    }
+  }
+
+  //Last cluster
+  for(int i = nbClusters*step; i < maxAngle; i++) {
+    orientationLUT.push_back(nbClusters-1);
+  }
+
+  return orientationLUT;
 }
 
 /*
@@ -1240,8 +1546,17 @@ Query_info_t ChamferMatcher::prepareQuery(const cv::Mat &img_query) {
   std::vector<std::vector<Line_info_t> > contours_lines;
   approximateContours(contours, contours_lines);
 
-  return Query_info_t(contours, dist_query, img_query, edge_orientations_query, edges_orientation,
-      labels_query, mask, contours_lines);
+  int nbClusters = 12;
+  //Compute IDT
+  cv::Mat query_idt, query_idt_edge_ori;
+  ChamferMatcher::computeIntegralDistanceTransform(dist_query, query_idt, nbClusters, true);
+  ChamferMatcher::computeIntegralDistanceTransform(edge_orientations_query, query_idt_edge_ori, nbClusters, true);
+
+  //Create orientation LUT
+  m_orientationLUT = ChamferMatcher::createOrientationLUT(nbClusters);
+
+  return Query_info_t(contours, dist_query, img_query, query_idt, query_idt_edge_ori, edge_orientations_query,
+      edges_orientation, labels_query, mask, contours_lines);
 }
 
 /*
