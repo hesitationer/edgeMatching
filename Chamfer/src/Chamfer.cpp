@@ -416,40 +416,6 @@ void ChamferMatcher::computeMatchingMap(const Template_info_t &template_info, co
     endJ = startJ + 1;
   }
 
-  //  cv::Mat rejection_mask = cv::Mat::ones(chamferMap.size(), CV_8U);
-
-  //  if(m_rejectionType == gridDescriptorRejection) {
-  //#pragma omp parallel for
-  //    for(int i = startI; i < endI; i += yStep) {
-  //      uchar *ptr_row_rejection_mask = rejection_mask.ptr<uchar>(i);
-  //
-  //      for(int j = startJ; j < endJ; j += xStep) {
-  //
-  //      	if(ptr_row_rejection_mask[j]) {
-  //          int nbMatches = 0;
-  //          for(size_t cpt = 0; cpt < template_info.m_gridDescriptorsLocations.size(); cpt++) {
-  //            cv::Point location = template_info.m_gridDescriptorsLocations[cpt] + cv::Point(j, i);
-  //
-  //            float query_dist = query_info.m_distImg.ptr<float>(location.y)[location.x];
-  //            float query_orientation = query_info.m_mapOfEdgeOrientation.ptr<float>(location.y)[location.x];
-  //
-  //            float template_dist = template_info.m_gridDescriptors[cpt].first;
-  //            float template_orientation = template_info.m_gridDescriptors[cpt].second;
-  //
-  //            if( std::fabs(query_dist-template_dist) < m_maxDescriptorDistanceError
-  //                && std::fabs(query_orientation-template_orientation) < m_maxDescriptorOrientationError ) {
-  //              nbMatches++;
-  //            }
-  //          }
-  //
-  //          if(nbMatches < m_minNbDescriptorMatches) {
-  //            ptr_row_rejection_mask[j] = 0;
-  //          }
-  //      	}
-  //      }
-  //    }
-  //  }
-
   computeRejectionMask(template_info, query_info, rejection_mask, startI, endI, yStep, startJ, endJ, xStep);
 
 
@@ -744,18 +710,6 @@ void ChamferMatcher::detect(const cv::Mat &img_query, std::vector<Detection_t> &
         detect_impl(it_template->second, query_info, regular_scale, all_detections, rejection_mask, useOrientation,
             distanceThresh, lambda, weight_forward, weight_backward, useGroupDetections);
 
-        //      //Useless, should be already done in detect_impl()
-        //      //Keep only detection with a Chamfer distance below a threshold
-        ////      retainDetections(all_maxima_detections, distanceThresh);
-        //
-        //      //Group similar detections
-        //      std::vector<Detection_t> current_detections;
-        //      if(useGroupDetections) {
-        //        groupDetections(all_maxima_detections, current_detections);
-        //      } else {
-        //        current_detections = all_maxima_detections;
-        //      }
-
         //Set Template index
         for(std::vector<Detection_t>::iterator it_detection = all_detections.begin();
             it_detection != all_detections.end(); ++it_detection) {
@@ -769,44 +723,6 @@ void ChamferMatcher::detect(const cv::Mat &img_query, std::vector<Detection_t> &
       return;
     }
   }
-
-  //  for(std::map<int, std::map<int, Template_info_t> >::const_iterator it = m_mapOfTemplate_info.begin();
-  //      it != m_mapOfTemplate_info.end(); ++it) {
-  //    std::vector<Detection_t> all_detections;
-  //
-  //    std::map<int, Template_info_t>::const_iterator it_template = it->second.find(regular_scale);
-  //    if(it_template != it->second.end()) {
-  //      int chamferMapWidth = m_query_info.m_distImg.cols - it_template->second.m_distImg.cols + 1;
-  //      int chamferMapHeight = m_query_info.m_distImg.rows - it_template->second.m_distImg.rows + 1;
-  //
-  //      if(chamferMapWidth > 0 && chamferMapHeight > 0) {
-  //      	cv::Mat rejection_mask = cv::Mat::ones(chamferMapHeight, chamferMapWidth, CV_8U);
-  //
-  //        detect_impl(it_template->second, regular_scale, all_detections, rejection_mask, useOrientation,
-  //        		distanceThresh, lambda, weight_forward, weight_backward, useGroupDetections);
-  //
-  //  //      //Useless, should be already done in detect_impl()
-  //  //      //Keep only detection with a Chamfer distance below a threshold
-  //  ////      retainDetections(all_maxima_detections, distanceThresh);
-  //  //
-  //  //      //Group similar detections
-  //  //      std::vector<Detection_t> current_detections;
-  //  //      if(useGroupDetections) {
-  //  //        groupDetections(all_maxima_detections, current_detections);
-  //  //      } else {
-  //  //        current_detections = all_maxima_detections;
-  //  //      }
-  //
-  //        //Set Template index
-  //        for(std::vector<Detection_t>::iterator it_detection = all_detections.begin();
-  //            it_detection != all_detections.end(); ++it_detection) {
-  //          it_detection->m_templateIndex = it->first;
-  //        }
-  //
-  //        detections.insert(detections.end(), all_detections.begin(), all_detections.end());
-  //      }
-  //    }
-  //  }
 
   //Sort detections by increasing cost
   std::sort(detections.begin(), detections.end());
@@ -910,57 +826,25 @@ void ChamferMatcher::detectMultiScale(const cv::Mat &img_query, std::vector<Dete
       }
     }
 
-
-
-    //    for(std::map<int, Template_info_t>::const_iterator it2 = it1->second.begin(); it2 != it1->second.end(); ++it2) {
-    //      std::vector<Detection_t> current_detections;
-    //
-    //      int chamferMapWidth = query_info.m_distImg.cols - it2->second.m_distImg.cols + 1;
-    //      int chamferMapHeight = query_info.m_distImg.rows - it2->second.m_distImg.rows + 1;
-    //
-    //      if(chamferMapWidth > 0 && chamferMapHeight > 0) {
-    //        cv::Mat rejection_mask = cv::Mat::ones(chamferMapHeight, chamferMapWidth, CV_8U);
-    //
-    //        detect_impl(it2->second, query_info, it2->first, current_detections, rejection_mask, useOrientation,
-    //        		distanceThresh, lambda, weight_forward, weight_backward, useGroupDetections);
-    //
-    //        //Set Template index
-    //        for(std::vector<Detection_t>::iterator it_detection = current_detections.begin();
-    //            it_detection != current_detections.end(); ++it_detection) {
-    //          it_detection->m_templateIndex = it1->first;
-    //        }
-    //
-    //        all_detections.insert(all_detections.end(), current_detections.begin(), current_detections.end());
-    //      }
-    //    }
-
-    //    //Non maxima suppression
-    //    std::vector<Detection_t> all_maxima_detections;
-    //    if(useNonMaximaSuppression) {
-    //      nonMaximaSuppression(all_detections, all_maxima_detections);
-    //    } else {
-    //      all_maxima_detections = all_detections;
-    //    }
-    //
-    //    //Useless, should be already done in detect_impl()
-    //    //Keep only detection with a Chamfer distance below a threshold
-    //  //  retainDetections(all_maxima_detections, distanceThresh);
-    //
-    //    //Group similar detections
-    //    if(useGroupDetections) {
-    //      groupDetections(all_maxima_detections, detections);
-    //    } else {
-    //      detections.insert(detections.end(), all_maxima_detections.begin(), all_maxima_detections.end());
-    //    }
+//    //Non maxima suppression
+//    std::vector<Detection_t> all_maxima_detections;
+//    if(useNonMaximaSuppression) {
+//      nonMaximaSuppression(all_detections, all_maxima_detections);
+//    } else {
+//      all_maxima_detections = all_detections;
+//    }
+//
+//    //Group similar detections
+//    if(useGroupDetections) {
+//      groupDetections(all_maxima_detections, detections);
+//    } else {
+//      detections.insert(detections.end(), all_maxima_detections.begin(), all_maxima_detections.end());
+//    }
     detections.insert(detections.end(), all_detections.begin(), all_detections.end());
   }
 
   //Sort detections by increasing cost
   std::sort(detections.begin(), detections.end());
-
-  //  for(size_t i = 0; i < detections.size(); i++) {
-  //    std::cout << i << ") dist=" << detections[i].m_chamferDist << " ; id=" << detections[i].m_templateIndex << std::endl;
-  //  }
 }
 
 /*
@@ -1716,44 +1600,4 @@ void ChamferMatcher::setTemplateImages(const std::map<int, cv::Mat> &mapOfTempla
   }
 
   setScale(m_scaleMin, m_scaleMax, m_scaleStep);
-
-
-
-  //	int regular_scale = 100;
-  //  for(std::map<int, cv::Mat>::const_iterator it_tpl = mapOfTemplateImages.begin();
-  //	  it_tpl != mapOfTemplateImages.end(); ++it_tpl) {
-  //
-  //  	//Set template image
-  //  	m_mapOfTemplateImages[it_tpl->first] = it_tpl->second.clone(); //Clone to avoid modification problem
-  //
-  //    //Precompute the template information for scale=100
-  //    m_mapOfTemplate_info[it_tpl->first][regular_scale] = prepareTemplate(it_tpl->second);
-  //
-  //    std::map<int, std::pair<cv::Rect, cv::Rect> >::const_iterator it_roi = mapOfTemplateRois.find(it_tpl->first);
-  //    if(it_roi == mapOfTemplateRois.end()) {
-  //    	std::cerr << "The id: " << it_roi->first << " does not exist in template rois!" << std::endl;
-  //    	return;
-  //    }
-  //
-  //    //Set template location
-  //    m_mapOfTemplate_info[it_tpl->first][regular_scale].m_templateLocation = it_roi->second.first;
-  //
-  //    //Set query ROI
-  //    m_mapOfTemplate_info[it_tpl->first][regular_scale].m_queryROI = it_roi->second.second;
-  //
-  //
-  //    //Compute template information for all the scales between [m_scaleMin ; m_scaleMax]
-  //    for(int scale = m_scaleMin; scale <= m_scaleMax; scale += m_scaleStep) {
-  //    	if(scale != regular_scale) {
-  //        cv::Mat img_template_scale;
-  //        cv::resize(it_tpl->second, img_template_scale, cv::Size(), scale/100.0, scale/100.0);
-  //
-  //        m_mapOfTemplate_info[it_tpl->first][scale] = prepareTemplate(img_template_scale);
-  //
-  //        if(m_pyramidType != noPyramid) {
-  //
-  //        }
-  //    	}
-  //    }
-  //  }
 }
