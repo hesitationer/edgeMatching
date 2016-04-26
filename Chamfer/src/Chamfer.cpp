@@ -133,7 +133,7 @@ double ChamferMatcher::computeChamferDistance(const Template_info_t &template_in
       for(size_t i = 0; i < template_info.m_vectorOfContourLines.size(); i++) {
         for(size_t j = 0; j < template_info.m_vectorOfContourLines[i].size(); j++) {
           cv::Point pt1 = template_info.m_vectorOfContourLines[i][j].m_pointStart;
-          cv::Point pt2 = template_info.m_vectorOfContourLines[i][j].m_PointEnd;
+          cv::Point pt2 = template_info.m_vectorOfContourLines[i][j].m_pointEnd;
           cv::Point offset_pt(offsetX, offsetY);
 
           //Add current window offset
@@ -175,7 +175,7 @@ double ChamferMatcher::computeChamferDistance(const Template_info_t &template_in
       for(size_t i = 0; i < template_info.m_vectorOfContourLines.size(); i++) {
         for(size_t j = 0; j < template_info.m_vectorOfContourLines[i].size(); j++) {
           cv::Point pt1 = template_info.m_vectorOfContourLines[i][j].m_pointStart;
-          cv::Point pt2 = template_info.m_vectorOfContourLines[i][j].m_PointEnd;
+          cv::Point pt2 = template_info.m_vectorOfContourLines[i][j].m_pointEnd;
           cv::Point offset_pt(offsetX, offsetY);
 
           //Add current window offset
@@ -214,7 +214,7 @@ double ChamferMatcher::computeChamferDistance(const Template_info_t &template_in
         for(size_t i = 0; i < query_info.m_vectorOfContourLines.size(); i++) {
           for(size_t j = 0; j < query_info.m_vectorOfContourLines[i].size(); j++) {
             cv::Point pt1 = query_info.m_vectorOfContourLines[i][j].m_pointStart;
-            cv::Point pt2 = query_info.m_vectorOfContourLines[i][j].m_PointEnd;
+            cv::Point pt2 = query_info.m_vectorOfContourLines[i][j].m_pointEnd;
             //TODO:
 //            cv::Point offset_pt(offsetX, offsetY);
 //
@@ -1154,6 +1154,115 @@ void ChamferMatcher::detectMultiScale(const cv::Mat &img_query, std::vector<Dete
 }
 
 /*
+ * Display template data to check if the template data are correctly loaded / computed.
+ */
+void ChamferMatcher::displayTemplateData(const int tempo) {
+  if(m_mapOfTemplate_info.size() != m_mapOfTemplateImages.size()) {
+    std::cerr << "Size of template info vector is different of size of template image vector!" << std::endl;
+    return;
+  }
+
+  for(std::map<int, std::map<int, Template_info_t> >::const_iterator it_tpl = m_mapOfTemplate_info.begin();
+      it_tpl != m_mapOfTemplate_info.end(); ++it_tpl) {
+
+    //Display image
+    std::map<int, cv::Mat>::const_iterator it_img = m_mapOfTemplateImages.find(it_tpl->first);
+    if(it_img == m_mapOfTemplateImages.end()) {
+      std::cerr << "Missing template image for id=" << it_tpl->first << std::endl;
+      return;
+    }
+
+    cv::imshow("Template image", it_img->second);
+
+
+    for(std::map<int, Template_info_t>::const_iterator it_tpl_scale = it_tpl->second.begin();
+        it_tpl_scale != it_tpl->second.end(); ++it_tpl_scale) {
+      //Display contour points
+      cv::Mat contour_img = cv::Mat::zeros(it_tpl_scale->second.m_distImg.size(), CV_8UC3);
+
+      for(size_t i = 0; i < it_tpl_scale->second.m_contours.size(); i++) {
+        cv::drawContours(contour_img, it_tpl_scale->second.m_contours, i, cv::Scalar(0,0,255), 1);
+      }
+
+
+      //Display contour orientation
+      int length = 20;
+      for(size_t i = 0; i < it_tpl_scale->second.m_edgesOrientation.size(); i++) {
+        for(size_t j = 0; j < it_tpl_scale->second.m_edgesOrientation[i].size(); j += 10) {
+          cv::Point start_point = it_tpl_scale->second.m_contours[i][j];
+
+          float angle1 = it_tpl_scale->second.m_edgesOrientation[i][j];
+          int x1 = cos(angle1)*length;
+          int y1 = sin(angle1)*length;
+          cv::Point end_point1 = start_point + cv::Point(x1, y1);
+
+          float angle2 = angle1 + M_PI;
+          int x2 = cos(angle2)*length;
+          int y2 = sin(angle2)*length;
+          cv::Point end_point2 = start_point + cv::Point(x2, y2);
+
+          cv::line(contour_img, start_point, end_point1, cv::Scalar(255,0,0));
+          cv::line(contour_img, start_point, end_point2, cv::Scalar(255,0,0));
+        }
+      }
+
+      cv::imshow("Template contour", contour_img);
+
+
+      //Display distance transform image
+      cv::Mat template_dt;
+      double minVal, maxVal;
+      cv::minMaxLoc(it_tpl_scale->second.m_distImg, &minVal, &maxVal);
+      it_tpl_scale->second.m_distImg.convertTo(template_dt, CV_8U, 255.0/(maxVal-minVal), -255.0*minVal/(maxVal-minVal));
+      cv::imshow("Template distance transform", template_dt);
+
+
+      //Display lines that approximated the contours
+      cv::Mat template_lines = cv::Mat::zeros(it_tpl_scale->second.m_distImg.size(), CV_8UC3);
+      for(size_t i = 0; i < it_tpl_scale->second.m_vectorOfContourLines.size(); i++) {
+        for(size_t j = 0; j < it_tpl_scale->second.m_vectorOfContourLines[i].size(); j++) {
+          //Display line
+          cv::line(template_lines, it_tpl_scale->second.m_vectorOfContourLines[i][j].m_pointStart,
+              it_tpl_scale->second.m_vectorOfContourLines[i][j].m_pointEnd, cv::Scalar(0,0,255), 1);
+
+          //Display line orientation
+          cv::Point start_point = it_tpl_scale->second.m_vectorOfContourLines[i][j].m_pointStart +
+              (it_tpl_scale->second.m_vectorOfContourLines[i][j].m_pointEnd -
+              it_tpl_scale->second.m_vectorOfContourLines[i][j].m_pointStart) / 2.0;
+
+          float angle1 = it_tpl_scale->second.m_vectorOfContourLines[i][j].m_theta;
+          int x1 = cos(angle1)*length;
+          int y1 = sin(angle1)*length;
+          cv::Point end_point1 = start_point + cv::Point(x1, y1);
+
+          float angle2 = angle1 + M_PI;
+          int x2 = cos(angle2)*length;
+          int y2 = sin(angle2)*length;
+          cv::Point end_point2 = start_point + cv::Point(x2, y2);
+
+          cv::line(template_lines, start_point, end_point1, cv::Scalar(255,0,0));
+          cv::line(template_lines, start_point, end_point2, cv::Scalar(255,0,0));
+        }
+      }
+
+      cv::imshow("Template contour lines", template_lines);
+
+
+      char c = cv::waitKey(tempo);
+      if(c == 27) {
+        break;
+      }
+    }
+  }
+
+  //Close window
+  cv::destroyWindow("Template image");
+  cv::destroyWindow("Template contour");
+  cv::destroyWindow("Template distance transform");
+  cv::destroyWindow("Template contour lines");
+}
+
+/*
  * Filter contours that contains less than a specific number of points.
  */
 void ChamferMatcher::filterSingleContourPoint(std::vector<std::vector<cv::Point> > &contours, const size_t min) {
@@ -1399,19 +1508,27 @@ void ChamferMatcher::loadTemplateData(const std::string &filename) {
           img = cv::Mat(nbRows, nbCols, CV_8U, data);
         }
       } else {
-        //Read image path
-        int path_length = 0;
-        file.read((char *)(&path_length), sizeof(path_length));
+        //Read image filename
+        int filename_length = 0;
+        file.read((char *)(&filename_length), sizeof(filename_length));
 
-        char* image_path = new char[path_length + 1];
-        for(int cpt = 0; cpt < path_length; cpt++) {
+        char* image_filename = new char[filename_length + 1];
+        for(int cpt = 0; cpt < filename_length; cpt++) {
           char c;
           file.read((char *)(&c), sizeof(c));
-          image_path[cpt] = c;
+          image_filename[cpt] = c;
         }
-        image_path[path_length] = '\0';
+        image_filename[filename_length] = '\0';
 
-        img = cv::imread(std::string(image_path));
+        //Get parent path
+        std::stringstream ss;
+        std::string parent = filename.find("/") != std::string::npos ? filename.substr( 0, filename.find_last_of("/") ) : "";
+        ss << parent << "/" << image_filename;
+
+        img = cv::imread(std::string(ss.str()));
+
+        //delete image_path
+        delete[] image_filename;
       }
 
       //Add image
@@ -1726,17 +1843,17 @@ void ChamferMatcher::saveTemplateData(const std::string &filename, const bool sa
           std::string image_filename = buffer;
           ss << image_filename;
 
-          //Save image on disk
+          //Save image on disk (the image will be in the same folder)
           std::string filepath = ss.str();
           cv::imwrite(filepath, it_image->second);
 
-          //Save path length
-          int path_length = (int) filepath.length();
-          file.write((char *)(&path_length), sizeof(path_length));
+          //Save image filename length (the image is in the same folder)
+          int filename_length = (int) image_filename.length();
+          file.write((char *)(&filename_length), sizeof(filename_length));
 
-          //Save image path
-          for(int cpt = 0; cpt < path_length; cpt++) {
-            file.write((char *) (&filepath[(size_t) cpt]), sizeof(filepath[(size_t) cpt]));
+          //Save image filename (the image is in the same folder)
+          for(size_t cpt = 0; cpt < image_filename.length(); cpt++) {
+            file.write((char *) (&image_filename[cpt]), sizeof(image_filename[cpt]));
           }
         }
 

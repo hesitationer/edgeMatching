@@ -67,13 +67,13 @@ struct less_than_area {
 
 struct Line_info_t {
   double m_length;
-  cv::Point m_PointEnd;
+  cv::Point m_pointEnd;
   cv::Point m_pointStart;
   double m_rho;
   double m_theta;
 
   Line_info_t(const double length, const double rho, const double theta, const cv::Point &start, const cv::Point &end)
-  : m_length(length), m_PointEnd(end), m_pointStart(start), m_rho(rho), m_theta(theta) {
+  : m_length(length), m_pointEnd(end), m_pointStart(start), m_rho(rho), m_theta(theta) {
   }
 
   friend std::ostream& operator<<(std::ostream& stream, const Line_info_t& line) {
@@ -261,6 +261,8 @@ public:
       const bool useOrientation, const float distanceThresh=50.0f, const float lambda=5.0f,
       const float weight_forward=1.0f, const float weight_backward=1.0f,
       const bool useNonMaximaSuppression=true, const bool useGroupDetections=true);
+
+  void displayTemplateData(const int tempo=0);
 
   static void filterSingleContourPoint(std::vector<std::vector<cv::Point> > &contours, const size_t min=3);
 

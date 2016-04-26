@@ -121,7 +121,7 @@ void createOrientedDistanceTransformImage(const cv::Mat &img, cv::Mat &img_dt, c
     //Create edge image corresponding to the current line orientation
     cv::Mat edge_img = cv::Mat::ones(img.size(), CV_8U)*255;
     for(std::vector<Line_info_t>::const_iterator it = mapOfLines[h].begin(); it != mapOfLines[h].end(); ++it) {
-      cv::line(edge_img, it->m_pointStart, it->m_PointEnd, cv::Scalar(0));
+      cv::line(edge_img, it->m_pointStart, it->m_pointEnd, cv::Scalar(0));
     }
 
     cv::Mat current_dt = cv::Mat(img.size(), CV_32F);
@@ -185,8 +185,8 @@ void testReconstructEdges(cv::Mat &img, const std::vector<std::vector<cv::Point>
       new_start_point = affine_transformation*start_point;
 
       cv::Mat end_point(3, 1, CV_64F), new_end_point(3, 1, CV_64F);
-      end_point.at<double>(0) = it2->m_PointEnd.x;
-      end_point.at<double>(1) = it2->m_PointEnd.y;
+      end_point.at<double>(0) = it2->m_pointEnd.x;
+      end_point.at<double>(1) = it2->m_pointEnd.y;
       end_point.at<double>(2) = 1.0f;
 
       new_end_point = affine_transformation*end_point;
