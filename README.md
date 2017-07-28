@@ -1,4 +1,4 @@
-# Chamfer-Matching (work in progress)
+# Chamfer-Matching (~~work in progress~~ abandoned)
 
 
 ### Warning:
